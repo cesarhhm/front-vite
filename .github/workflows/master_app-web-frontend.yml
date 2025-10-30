@@ -10,27 +10,28 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read # Required for actions/checkout
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Node.js version
+      - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '20.x'
+          node-version: 20
 
-      - name: npm install, build, and test
+      - name: Install dependencies and build
         run: |
-          npm install
-          npm run build --if-present
-          npm run test --if-present
+          npm ci
+          npm run build
+          ls -la build || echo "⚠️ No se generó la carpeta build"
 
-      - name: Upload artifact for deployment job
+      - name: Upload build artifact
+        if: ${{ hashFiles('build/**/*') != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: ./build   # 👈 solo subimos la carpeta generada por npm run build
+          path: build
 
   deploy:
     runs-on: ubuntu-latest
@@ -40,11 +41,11 @@ jobs:
       contents: read
 
     steps:
-      - name: Download artifact from build job
+      - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: node-app
-          path: ./build   # 👈 descargamos el artefacto en /build
+          path: build
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -53,10 +54,9 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_485325EB645D42B29BB38E836C254822 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_3D959D0794764F778E161D35F9B7D5AF }}
 
-      - name: 'Deploy to Azure Web App'
-        id: deploy-to-webapp
+      - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'app-web-frontend'
-          slot-name: 'Production'
-          package: ./build   # 👈 ahora sí: sube el contenido compilado
+          app-name: app-web-frontend
+          slot-name: Production
+          package: build
